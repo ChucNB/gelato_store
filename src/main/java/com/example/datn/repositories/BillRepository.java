@@ -75,7 +75,8 @@ public interface BillRepository  extends JpaRepository<Bill, Long>, JpaSpecifica
             "           FROM image\n" +
             "           WHERE p.id = image.product_id\n" +
 
-            "       ) AS imageUrl " +
+            "       ) AS imageUrl, " +
+            " b.promotion_price*(bd.moment_price/b.amount) as promotionPerProduct " +
             "from bill b join bill_detail bd on b.id=bd.bill_id join" +
             " product_detail pd on bd.product_detail_id =pd.id join" +
             " product p on pd.product_id=p.id join color c on pd.color_id=c.id join size s on pd.size_id = s.id " +
@@ -197,9 +198,24 @@ public interface BillRepository  extends JpaRepository<Bill, Long>, JpaSpecifica
                                            @Param("loaiDon") InvoiceType loaiDon,
                                            @Param("soDienThoai") String soDienThoai,
                                            @Param("hoVaTen") String hoVaTen);
-    @Query("Select b.id from Bill b where b.status=com.example.datn.entities.enumClass.BillStatus.TAI_QUAY")
+    @Query("Select b.id from Bill b where b.status=?1")
     List<Long> findAllByStatus(BillStatus billStatus);
 
     @Query(value = "select * from Bill", nativeQuery = true)
     List<InStoreInvoiceDetail> findAllInStoreInvoiceDetail(List<Long> ids);
+    @Modifying
+    @Transactional
+    @Query(value = """
+            UPDATE BILL
+            SET STATUS='CHO_HANG_VE'
+            WHERE ID IN (SELECT BILL.ID
+                         FROM BILL
+                                  LEFT JOIN BILL_DETAIL ON BILL.ID = BILL_DETAIL.BILL_ID
+                                  LEFT JOIN PRODUCT_DETAIL ON BILL_DETAIL.PRODUCT_DETAIL_ID = PRODUCT_DETAIL.ID
+            
+                         WHERE BILL.STATUS = 'CHO_XAC_NHAN'
+                           AND PRODUCT_DETAIL.QUANTITY < BILL_DETAIL.QUANTITY)
+            
+    """, nativeQuery = true)
+    void updateStatusChoHangVe();
 }
